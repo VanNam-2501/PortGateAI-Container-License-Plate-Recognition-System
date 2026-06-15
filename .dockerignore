@@ -1,0 +1,63 @@
+# Ignore Git & configuration
+.git/
+.gitignore
+.dockerignore
+
+# Ignore Python virtual environments & packages
+venv/
+.venv/
+env/
+ENV/
+*.egg-info/
+smart_gate.egg-info/
+
+# Ignore Python caches & builds
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+build/
+dist/
+.eggs/
+
+# Ignore local secret configurations
+.env
+.env.*
+!.env.example
+
+# Ignore testing caches & coverage
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache/
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+
+# Ignore local data & media files (which should be mounted as volumes)
+data/uploads/*
+!data/uploads/.gitkeep
+outputs/results/*
+!outputs/results/.gitkeep
+logs/*
+!logs/.gitkeep
+labeled_dataset/
+newdata/
+mixed_dataset_ready/
+debug_crops/
+visualized_results/
+*.mp4
+*.avi
+*.mkv
+
+# Ignore IDE configs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Ignore local models (these are mounted as volumes in docker-compose.yml)
+models/*
+!models/.gitkeep

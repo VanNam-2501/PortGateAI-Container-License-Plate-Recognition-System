@@ -1,0 +1,182 @@
+# ==============================================================================
+# SMART PORT GATE PROJECT - GITIGNORE CONFIGURATION
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. OS & SYSTEM FILES (OS-specific files that shouldn't be committed)
+# ------------------------------------------------------------------------------
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Linux
+*~
+
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# PyCharm / JetBrains / Eclipse
+.idea/
+.project
+.pydevproject
+.settings/
+
+# Sublime Text / Vim
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*.sw?
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*/.ipynb_checkpoints/
+
+
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# C extensions
+*.so
+
+# Distribution / packaging / build artifacts
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+
+.env
+.env.*
+!.env.example
+
+# Python Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Pip logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ------------------------------------------------------------------------------
+# 5. TESTING, LINTING & CODE QUALITY
+# ------------------------------------------------------------------------------
+# Pytest & Coverage
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+htmlcov/
+/tests/
+
+# Ruff, Flake8 & MyPy caches
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# YOLO (Ultralytics) outputs and runs
+/runs/
+/yolo_dataset/
+
+# Deep Learning Framework local caches
+.paddleocr/
+.paddlex/
+/PaddleOCR/
+/inference/
+
+# Model Weights (Prevent heavy binary weights from being committed to Git)
+*.pt
+*.pth
+*.onnx
+*.pb
+*.h5
+*.tflite
+*.ckpt
+/weights/
+
+
+
+# Input Data
+/data/*
+!/data/.gitkeep
+!/data/uploads/
+/data/uploads/*
+!/data/uploads/.gitkeep
+
+# Output crops and results
+/outputs/*
+!/outputs/.gitkeep
+!/outputs/results/
+/outputs/results/*
+!/outputs/results/.gitkeep
+
+# Model weights folder
+/models/*
+!/models/.gitkeep
+# Allow tracking of text configurations/dictionary files inside the models folder
+!/models/**/*.txt
+!/models/**/*.json
+!/models/**/*.yaml
+!/models/**/*.yml
+
+# Logs
+/logs/*
+!/logs/.gitkeep
+*.log
+
+# Temp/Debug directories and media crops
+/labeled_dataset/
+/newdata/
+/mixed_dataset_ready/
+/debug_crops/
+/visualized_results/
+visualized_*.jpeg
+visualized_*.png
+*.mp4
+*.avi
+*.mkv
+
+
+/config/roi_config.json
+
+/walkthrough.md

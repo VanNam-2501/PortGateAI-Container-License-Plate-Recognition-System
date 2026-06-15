@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smart-gate"
+version = "1.0.0"
+description = "Smart Port Gate E2E ALPR & Container OCR System"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy>=1.20.0",
+    "opencv-python>=4.5.0",
+    "pyyaml>=6.0",
+    "ultralytics>=8.3.0",
+    "paddleocr>=2.6.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
+    "python-multipart>=0.0.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+[project.scripts]
+smart-gate-api = "app.main:main"
+smart-gate-run = "scripts.run_inference:main"
+smart-gate-benchmark = "scripts.benchmark:main"
+smart-gate-autolabel = "scripts.auto_label:main"
+smart-gate-draw-roi = "scripts.draw_roi:main"
+smart-gate-train = "scripts.train_yolo:main"
+
+[tool.setuptools]
+packages = ["app", "scripts"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::UserWarning",
+]

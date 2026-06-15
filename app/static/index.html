@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Port Gate OCR - Giám Sát Cổng Cảng</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        outfit: ['Outfit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0b0f19;
+            color: #f3f4f6;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111827;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+        /* Glassmorphism utility */
+        .glass-card {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .tx-row-active {
+            background: rgba(249, 115, 22, 0.08) !important;
+            border-left: 3px solid #f97316 !important;
+        }
+    </style>
+</head>
+<body class="font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="glass-card sticky top-0 z-40 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-gradient-to-tr from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="font-outfit font-bold text-xl tracking-wide bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">SMART PORT GATE OCR</h1>
+                <p class="text-xs text-gray-500 font-medium">Hệ thống giám sát cổng cảng & phân tích camera thông minh</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2 bg-gray-900/60 border border-gray-800 rounded-full px-4 py-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                <span id="simulator-state" class="text-xs text-emerald-400 font-semibold tracking-wider uppercase">IDLE</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+
+        <!-- Grid Top: Video stream + Details / Controls Side-by-Side -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Video Live Stream Frame (Left 2/3) -->
+            <div class="lg:col-span-2 flex flex-col space-y-3">
+                <div class="flex items-center justify-between">
+                    <h2 class="font-outfit font-semibold text-lg text-gray-200 flex items-center space-x-2">
+                        <span class="w-2 h-2 bg-orange-500 rounded-full"></span>
+                        <span>Giám sát luồng camera cổng cảng</span>
+                    </h2>
+                    <span class="text-xs text-gray-500 font-mono">Tỉ lệ 16:9</span>
+                </div>
+                
+                <!-- Video Container -->
+                <div class="relative glass-card rounded-2xl overflow-hidden shadow-2xl border border-gray-800 aspect-video group">
+                    <img id="stream-img" src="" alt="Video Stream" class="w-full h-full object-cover">
+                    
+                    <!-- Canvas Drawing Overlay -->
+                    <canvas id="roi-canvas" class="absolute inset-0 w-full h-full cursor-crosshair z-10"></canvas>
+                    
+                    <!-- Drawing status Overlay -->
+                    <div id="drawing-hint" class="absolute top-4 right-4 z-20 bg-gray-900/90 text-yellow-400 border border-yellow-500/30 text-xs px-3 py-1.5 rounded-full font-medium hidden">
+                        Chế độ vẽ: Click chuột trái để thêm điểm. Click chuột phải để Hoàn tác.
+                    </div>
+                </div>
+
+                <!-- Drawing Controls Bar -->
+                <div class="flex items-center justify-between bg-gray-900/40 border border-gray-800/80 rounded-xl px-4 py-3">
+                    <div class="flex items-center space-x-2">
+                        <button id="btn-draw" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-orange-600/10 transition duration-200">
+                            Vẽ Vùng Nhận Diện
+                        </button>
+                        <button id="btn-clear" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-xs font-semibold transition duration-200 hidden">
+                            Xóa Vẽ Lại
+                        </button>
+                        <button id="btn-save" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-emerald-600/10 transition duration-200 hidden">
+                            Lưu Vùng Nhận Diện
+                        </button>
+                    </div>
+                    <span id="points-count" class="text-xs text-gray-500">Ấn nút "Vẽ Vùng Nhận Diện" để thiết lập.</span>
+                </div>
+            </div>
+
+            <!-- Tabbed Panel: Selected Details & Controls (Right 1/3) -->
+            <div class="glass-card rounded-2xl border border-gray-800 flex flex-col overflow-hidden shadow-2xl h-[536px]">
+                <!-- Tabs Header -->
+                <div class="flex border-b border-gray-800 bg-gray-950/40">
+                    <button id="tab-btn-detail" class="flex-1 py-3 text-xs font-semibold border-b-2 border-orange-500 text-white focus:outline-none transition duration-200">
+                        Chi Tiết Lượt Xe
+                    </button>
+                    <button id="tab-btn-config" class="flex-1 py-3 text-xs font-semibold text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none transition duration-200">
+                        Thiết Lập & Giả Lập
+                    </button>
+                </div>
+
+                <!-- Tabs Content Container -->
+                <div class="flex-1 p-5 overflow-y-auto flex flex-col">
+                    
+                    <!-- TAB 1: Selected Transaction Details -->
+                    <div id="tab-content-detail" class="flex-1 flex flex-col space-y-4">
+                        <!-- Empty State -->
+                        <div id="selected-empty-state" class="flex-1 flex flex-col items-center justify-center text-center space-y-3 text-gray-500">
+                            <svg class="w-10 h-10 text-gray-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path>
+                            </svg>
+                            <p class="text-xs max-w-[200px]">Chọn một lượt xe trong bảng lịch sử bên dưới để ghim hình ảnh và thông số chi tiết tại đây.</p>
+                        </div>
+                        
+                        <!-- Detail Content -->
+                        <div id="selected-content" class="hidden flex flex-col space-y-4 h-full">
+                            <!-- Top header -->
+                            <div class="flex justify-between items-center border-b border-gray-800 pb-2">
+                                <span id="detail-tx-id" class="text-xs font-mono font-bold text-orange-400">LƯỢT XE: N/A</span>
+                                <span id="detail-timestamp" class="text-[11px] text-gray-500">00:00:00</span>
+                            </div>
+                            
+                            <!-- Full Entry Image -->
+                            <div class="flex flex-col space-y-1">
+                                <span class="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Ảnh toàn cảnh chụp xe:</span>
+                                <div class="rounded-xl overflow-hidden border border-gray-800 aspect-video bg-gray-950 relative group">
+                                    <img id="detail-entry-img" src="" alt="Entry" class="w-full h-full object-cover">
+                                    <button id="btn-zoom-entry" class="absolute bottom-2 right-2 bg-gray-900/90 text-white rounded-lg p-1.5 opacity-0 group-hover:opacity-100 transition duration-200">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- YOLO & OCR crop comparisions -->
+                            <div class="flex-1 overflow-y-auto space-y-3 pr-1 max-h-[220px]" id="detail-detections-list">
+                                <!-- Crops list will populate here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: Config & Simulation Controls -->
+                    <div id="tab-content-config" class="hidden flex-1 flex flex-col space-y-4">
+                        <h3 class="font-outfit font-semibold text-sm text-gray-200">Điều khiển giả lập cổng</h3>
+                        
+                        <!-- Select video -->
+                        <div class="flex flex-col space-y-1">
+                            <label class="text-xs text-gray-400 font-medium">Chọn video test đầu vào:</label>
+                            <select id="video-select" class="bg-gray-900 border border-gray-800 text-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-500">
+                                <option value="">-- Đang quét video --</option>
+                            </select>
+                        </div>
+
+                        <!-- Upload video -->
+                        <form id="upload-form" class="flex items-center justify-between border-t border-gray-800/40 pt-4">
+                            <div class="flex-1 mr-2">
+                                <input type="file" id="video-file" accept="video/*" class="hidden">
+                                <button type="button" onclick="document.getElementById('video-file').click()" class="w-full bg-gray-900 border border-gray-800 text-gray-400 hover:text-white rounded-lg px-3 py-2 text-xs font-semibold transition duration-200 text-center">
+                                    Chọn video từ máy...
+                                </button>
+                            </div>
+                            <button type="submit" id="btn-upload" class="px-3 py-2 bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg text-xs font-semibold transition duration-200">
+                                Tải Lên
+                            </button>
+                        </form>
+                        <div id="upload-status" class="text-[10px] text-gray-500 text-right"></div>
+
+                        <!-- Simulator Controls -->
+                        <div class="flex space-x-2 pt-2 border-t border-gray-800/40">
+                            <button id="btn-start-sim" class="flex-1 py-2.5 bg-gradient-to-tr from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-orange-600/10 transition duration-200">
+                                Chạy Giả Lập
+                            </button>
+                            <button id="btn-stop-sim" class="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-semibold transition duration-200">
+                                Dừng
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Section Bottom: Optimized compact table of transaction logs -->
+        <div class="space-y-3">
+            <h2 class="font-outfit font-semibold text-lg text-gray-200 flex items-center space-x-2">
+                <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                </svg>
+                <span>Nhật ký lượt xe qua cổng</span>
+            </h2>
+
+            <div class="glass-card rounded-2xl border border-gray-800 overflow-hidden shadow-xl">
+                <div class="overflow-x-auto max-h-[350px]">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-950/60 border-b border-gray-800 text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                                <th class="py-3 px-4 w-16 text-center">Ảnh chụp</th>
+                                <th class="py-3 px-4 w-32">Mã Lượt Xe</th>
+                                <th class="py-3 px-4 w-28">Thời Gian Vào</th>
+                                <th class="py-3 px-4">Biển Số Nhận Diện</th>
+                                <th class="py-3 px-4">Số Container Nhận Diện</th>
+                                <th class="py-3 px-4 w-28">Loại ISO</th>
+                                <th class="py-3 px-4 w-28 text-center">Trạng Thái</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-table-body">
+                            <!-- Rows will dynamically prepend here -->
+                            <tr id="no-results" class="border-b border-gray-800/40 hover:bg-gray-900/10">
+                                <td colspan="7" class="py-8 px-4 text-center text-sm text-gray-500">
+                                    Chưa có lượt xe nào đi qua được ghi nhận.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-auto glass-card border-t border-gray-800 text-center py-4 text-xs text-gray-500 font-medium">
+    </footer>
+
+    <!-- Vanilla Javascript Logic -->
+    <script>
+        const streamImg = document.getElementById('stream-img');
+        const roiCanvas = document.getElementById('roi-canvas');
+        const ctx = roiCanvas.getContext('2d');
+        
+        // Buttons
+        const btnDraw = document.getElementById('btn-draw');
+        const btnClear = document.getElementById('btn-clear');
+        const btnSave = document.getElementById('btn-save');
+        const pointsCountSpan = document.getElementById('points-count');
+        const drawingHint = document.getElementById('drawing-hint');
+        
+        const videoSelect = document.getElementById('video-select');
+        const uploadForm = document.getElementById('upload-form');
+        const videoFile = document.getElementById('video-file');
+        const btnStartSim = document.getElementById('btn-start-sim');
+        const btnStopSim = document.getElementById('btn-stop-sim');
+        const logBox = document.getElementById('log-box');
+        
+        // Tab buttons
+        const tabBtnDetail = document.getElementById('tab-btn-detail');
+        const tabBtnConfig = document.getElementById('tab-btn-config');
+        const tabContentDetail = document.getElementById('tab-content-detail');
+        const tabContentConfig = document.getElementById('tab-content-config');
+        
+        // Dynamic Results List & Selected Detail
+        const resultsTableBody = document.getElementById('results-table-body');
+        const noResults = document.getElementById('no-results');
+        const selectedEmptyState = document.getElementById('selected-empty-state');
+        const selectedContent = document.getElementById('selected-content');
+        
+        // Detail panel bindings
+        const detailTxId = document.getElementById('detail-tx-id');
+        const detailTimestamp = document.getElementById('detail-timestamp');
+        const detailEntryImg = document.getElementById('detail-entry-img');
+        const detailDetectionsList = document.getElementById('detail-detections-list');
+        const btnZoomEntry = document.getElementById('btn-zoom-entry');
+        
+        // Draw state
+        let isDrawingMode = false;
+        let roiPoints = [];
+        let naturalWidth = 1920;  // Default fallback
+        let naturalHeight = 1080;
+        
+        // Transaction tracking
+        let renderedTxIds = new Set();
+        let selectedTxId = null;
+        let resultsDataStore = {}; // Memory cache to retrieve full object on click
+
+        // Tab Switching Logic
+        tabBtnDetail.addEventListener('click', () => switchTab('detail'));
+        tabBtnConfig.addEventListener('click', () => switchTab('config'));
+
+        function switchTab(tab) {
+            if (tab === 'detail') {
+                tabBtnDetail.className = "flex-1 py-3 text-xs font-semibold border-b-2 border-orange-500 text-white focus:outline-none transition duration-200";
+                tabBtnConfig.className = "flex-1 py-3 text-xs font-semibold text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none transition duration-200";
+                tabContentDetail.classList.remove('hidden');
+                tabContentConfig.classList.add('hidden');
+            } else {
+                tabBtnConfig.className = "flex-1 py-3 text-xs font-semibold border-b-2 border-orange-500 text-white focus:outline-none transition duration-200";
+                tabBtnDetail.className = "flex-1 py-3 text-xs font-semibold text-gray-400 border-b-2 border-transparent hover:text-white focus:outline-none transition duration-200";
+                tabContentConfig.classList.remove('hidden');
+                tabContentDetail.classList.add('hidden');
+            }
+        }
+
+        // Initialize Web GUI
+        window.addEventListener('DOMContentLoaded', () => {
+            // Load custom placeholder
+            streamImg.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='56' viewBox='0 0 100 56'><rect width='100' height='56' fill='%23111827'/><text x='50' y='28' fill='%234b5563' font-family='sans-serif' font-size='4' text-anchor='middle'>CHƯA BẮT ĐẦU GIẢ LẬP - HÃY CHỌN VIDEO</text></svg>";
+            
+            // List videos, ROI config, and results
+            fetchVideos();
+            fetchRoi();
+            fetchResults(true); // first fetch
+            fetchStatus();
+            
+            // Periodically fetch transaction results incrementally
+            setInterval(() => fetchResults(false), 1500);
+            setInterval(fetchStatus, 1000);
+        });
+
+        // Set natural canvas sizes when image actually loads
+        streamImg.onload = () => {
+            if (streamImg.naturalWidth && streamImg.naturalWidth > 100) {
+                naturalWidth = streamImg.naturalWidth;
+                naturalHeight = streamImg.naturalHeight;
+                roiCanvas.width = naturalWidth;
+                roiCanvas.height = naturalHeight;
+                redrawRoi();
+            }
+        };
+
+        // Logging helper
+        function addLog(text, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            console.log(`[${time}] [${type}] ${text}`);
+        }
+
+        function setEmptyResultsMessage(message) {
+            const cell = noResults.querySelector('td');
+            if (cell) cell.innerText = message;
+        }
+
+        function updateSimulatorBadge(status) {
+            const stateEl = document.getElementById('simulator-state');
+            const state = status.state || (status.is_running ? 'RUNNING' : 'IDLE');
+            stateEl.innerText = state;
+
+            let color = 'text-emerald-400';
+            if (state === 'COLLECTING') color = 'text-orange-400';
+            if (state === 'PROCESSING') color = 'text-rose-400';
+            if (state === 'COOLDOWN') color = 'text-sky-400';
+            stateEl.className = `text-xs ${color} font-semibold tracking-wider uppercase`;
+        }
+
+        async function fetchStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const status = await res.json();
+                updateSimulatorBadge(status);
+
+                if (renderedTxIds.size > 0) return;
+
+                if (!status.is_running) {
+                    setEmptyResultsMessage('Chưa có lượt xe nào đi qua được ghi nhận.');
+                } else if (status.state === 'COLLECTING') {
+                    setEmptyResultsMessage(`Đang ghi nhận lượt xe ${status.tx_id || ''} (${status.transaction_frames} frame). Chi tiết sẽ hiện sau khi xe rời ROI hoặc video kết thúc.`);
+                } else if (status.state === 'PROCESSING') {
+                    setEmptyResultsMessage('Đang phân tích OCR và gom kết quả, vui lòng chờ vài giây...');
+                } else {
+                    setEmptyResultsMessage(status.status_message || 'Đang chờ xe đi vào vùng nhận diện...');
+                }
+            } catch (err) {
+                console.error("Error fetching status:", err);
+            }
+        }
+
+        // Draw modes toggle
+        btnDraw.addEventListener('click', () => {
+            isDrawingMode = !isDrawingMode;
+            if (isDrawingMode) {
+                btnDraw.innerText = "Hủy Vẽ";
+                btnDraw.className = "px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-rose-600/10 transition duration-200";
+                btnClear.classList.remove('hidden');
+                btnSave.classList.remove('hidden');
+                drawingHint.classList.remove('hidden');
+                pointsCountSpan.innerText = "Click để thêm các điểm (Cần tối thiểu 3 điểm).";
+                roiPoints = [];
+                ctx.clearRect(0, 0, roiCanvas.width, roiCanvas.height);
+            } else {
+                exitDrawingMode();
+                fetchRoi(); // restore original
+            }
+        });
+
+        function exitDrawingMode() {
+            isDrawingMode = false;
+            btnDraw.innerText = "Vẽ Vùng Nhận Diện";
+            btnDraw.className = "px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-orange-600/10 transition duration-200";
+            btnClear.classList.add('hidden');
+            btnSave.classList.add('hidden');
+            drawingHint.classList.add('hidden');
+            pointsCountSpan.innerText = "Ấn nút 'Vẽ Vùng Nhận Diện' để thiết lập.";
+        }
+
+        btnClear.addEventListener('click', () => {
+            roiPoints = [];
+            ctx.clearRect(0, 0, roiCanvas.width, roiCanvas.height);
+            pointsCountSpan.innerText = "Đã xóa toàn bộ điểm. Hãy Click vẽ lại.";
+        });
+
+        // Add Points on Click
+        roiCanvas.addEventListener('mousedown', (e) => {
+            if (!isDrawingMode) return;
+            
+            // Map click client coords to natural canvas resolution
+            const rect = roiCanvas.getBoundingClientRect();
+            const scaleX = roiCanvas.width / rect.width;
+            const scaleY = roiCanvas.height / rect.height;
+            const x = Math.round((e.clientX - rect.left) * scaleX);
+            const y = Math.round((e.clientY - rect.top) * scaleY);
+            
+            if (e.button === 0) { // Left click
+                roiPoints.push([x, y]);
+                addLog(`Đã chọn điểm: (${x}, ${y})`);
+            }
+            redrawRoi();
+        });
+
+        // Right click to undo point
+        roiCanvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            if (!isDrawingMode) return;
+            if (roiPoints.length > 0) {
+                const popped = roiPoints.pop();
+                addLog(`Đã xóa điểm: (${popped[0]}, ${popped[1]})`, 'warning');
+                redrawRoi();
+            }
+        });
+
+        function redrawRoi() {
+            ctx.clearRect(0, 0, roiCanvas.width, roiCanvas.height);
+            if (roiPoints.length === 0) return;
+            
+            // Draw lines
+            ctx.strokeStyle = '#f97316'; // Orange
+            ctx.lineWidth = 4;
+            ctx.fillStyle = 'rgba(249, 115, 22, 0.2)';
+            
+            ctx.beginPath();
+            ctx.moveTo(roiPoints[0][0], roiPoints[0][1]);
+            
+            // Points circles
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(roiPoints[0][0], roiPoints[0][1], 8, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            for (let i = 1; i < roiPoints.length; i++) {
+                ctx.beginPath();
+                ctx.moveTo(roiPoints[i-1][0], roiPoints[i-1][1]);
+                ctx.lineTo(roiPoints[i][0], roiPoints[i][1]);
+                ctx.stroke();
+                
+                // Draw circle
+                ctx.beginPath();
+                ctx.arc(roiPoints[i][0], roiPoints[i][1], 8, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+            
+            // Draw close line
+            if (roiPoints.length >= 3) {
+                ctx.beginPath();
+                ctx.moveTo(roiPoints[roiPoints.length-1][0], roiPoints[roiPoints.length-1][1]);
+                ctx.lineTo(roiPoints[0][0], roiPoints[0][1]);
+                ctx.stroke();
+                
+                // Fill poly
+                ctx.fillStyle = 'rgba(249, 115, 22, 0.15)';
+                ctx.beginPath();
+                ctx.moveTo(roiPoints[0][0], roiPoints[0][1]);
+                for (let i = 1; i < roiPoints.length; i++) {
+                    ctx.lineTo(roiPoints[i][0], roiPoints[i][1]);
+                }
+                ctx.closePath();
+                ctx.fill();
+            }
+            
+            pointsCountSpan.innerText = `Số lượng điểm: ${roiPoints.length}`;
+        }
+
+        // Save ROI Config to server
+        btnSave.addEventListener('click', async () => {
+            if (roiPoints.length < 3) {
+                alert("Vùng ROI đa giác cần tối thiểu 3 điểm!");
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/roi', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ polygon: roiPoints })
+                });
+                const res = await response.json();
+                if (res.status === 'success') {
+                    addLog("Lưu thành công tọa độ ROI đa giác lên server!", "success");
+                    exitDrawingMode();
+                }
+            } catch (err) {
+                addLog(`Lỗi lưu ROI: ${err}`, 'error');
+            }
+        });
+
+        // API Helpers
+        async function fetchVideos() {
+            try {
+                const res = await fetch('/api/videos');
+                const data = await res.json();
+                videoSelect.innerHTML = '';
+                if (data.videos && data.videos.length > 0) {
+                    data.videos.forEach(vid => {
+                        const opt = document.createElement('option');
+                        opt.value = vid;
+                        opt.innerText = vid;
+                        videoSelect.appendChild(opt);
+                    });
+                } else {
+                    const opt = document.createElement('option');
+                    opt.value = "";
+                    opt.innerText = "-- Chưa có video nào --";
+                    videoSelect.appendChild(opt);
+                }
+            } catch (err) {
+                console.error("Error fetching videos:", err);
+            }
+        }
+
+        async function fetchRoi() {
+            if (isDrawingMode) return;
+            try {
+                const res = await fetch('/api/roi');
+                const data = await res.json();
+                if (data.polygon && data.polygon.length >= 3) {
+                    roiPoints = data.polygon;
+                    redrawRoi();
+                    addLog(`Tải ROI polygon thành công từ server (${roiPoints.length} điểm).`);
+                }
+            } catch (err) {
+                console.error("Error fetching ROI:", err);
+            }
+        }
+
+        // Start video simulation
+        btnStartSim.addEventListener('click', async () => {
+            const val = videoSelect.value;
+            if (!val) {
+                alert("Hãy upload hoặc chọn một file video để test.");
+                return;
+            }
+            
+            addLog(`Đang gửi yêu cầu khởi động mô phỏng video: ${val}...`);
+            try {
+                const fd = new FormData();
+                fd.append('video_path', val);
+                
+                const response = await fetch('/api/simulation/start', {
+                    method: 'POST',
+                    body: fd
+                });
+                
+                if (response.ok) {
+                    addLog("Đã bật giả lập video thời gian thực thành công!", "success");
+                    streamImg.src = `/api/stream?t=${Date.now()}`;
+                    document.getElementById('simulator-state').innerText = "RUNNING";
+                    document.getElementById('simulator-state').className = "text-xs text-orange-400 font-semibold tracking-wider uppercase";
+                } else {
+                    const errObj = await response.json();
+                    addLog(`Lỗi bắt đầu: ${errObj.detail}`, 'error');
+                }
+            } catch (err) {
+                addLog(`Lỗi kết nối: ${err}`, 'error');
+            }
+        });
+
+        // Stop video simulation
+        btnStopSim.addEventListener('click', async () => {
+            addLog("Đang dừng giả lập...");
+            try {
+                const response = await fetch('/api/simulation/stop', { method: 'POST' });
+                if (response.ok) {
+                    addLog("Đã dừng mô phỏng.", "warning");
+                    streamImg.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='56' viewBox='0 0 100 56'><rect width='100' height='56' fill='%23111827'/><text x='50' y='28' fill='%234b5563' font-family='sans-serif' font-size='4' text-anchor='middle'>ĐÃ DỪNG GIẢ LẬP</text></svg>";
+                    document.getElementById('simulator-state').innerText = "IDLE";
+                    document.getElementById('simulator-state').className = "text-xs text-emerald-400 font-semibold tracking-wider uppercase";
+                    ctx.clearRect(0, 0, roiCanvas.width, roiCanvas.height);
+                    fetchRoi(); // redraw original ROI
+                }
+            } catch (err) {
+                addLog(`Lỗi dừng: ${err}`, 'error');
+            }
+        });
+
+        // Upload custom video
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (videoFile.files.length === 0) {
+                alert("Vui lòng chọn một file video trước!");
+                return;
+            }
+            
+            const file = videoFile.files[0];
+            const fd = new FormData();
+            fd.append('file', file);
+            
+            const uploadStatus = document.getElementById('upload-status');
+            uploadStatus.innerText = "Đang upload...";
+            addLog(`Bắt đầu tải lên: ${file.name}...`);
+            
+            try {
+                const res = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: fd
+                });
+                
+                const data = await res.json();
+                if (data.status === 'success') {
+                    uploadStatus.innerText = "Upload thành công!";
+                    addLog(`Đã tải lên video thành công: ${data.filename}`, 'success');
+                    fetchVideos(); // refresh list
+                } else {
+                    uploadStatus.innerText = "Upload thất bại.";
+                }
+            } catch (err) {
+                uploadStatus.innerText = "Lỗi kết nối.";
+                addLog(`Lỗi tải lên: ${err}`, 'error');
+            }
+        });
+
+        // Fetch Results incrementally and populate table
+        async function fetchResults(firstLoad = false) {
+            try {
+                const res = await fetch('/api/results');
+                const results = await res.json();
+                
+                if (results.length > 0) {
+                    noResults.classList.add('hidden');
+                    
+                    let addedNew = false;
+                    for (let i = results.length - 1; i >= 0; i--) {
+                        const tx = results[i];
+                        if (renderedTxIds.has(tx.id)) continue;
+                        
+                        renderedTxIds.add(tx.id);
+                        resultsDataStore[tx.id] = tx; // Cache result
+                        addedNew = true;
+                        
+                        // Create Table Row element
+                        const tr = document.createElement('tr');
+                        tr.id = `tx-row-${tx.id}`;
+                        tr.className = "border-b border-gray-800/40 hover:bg-gray-800/20 transition duration-150 cursor-pointer select-none text-xs font-medium text-gray-300";
+                        
+                        // Action on row click (Select and Pin detail panel)
+                        tr.onclick = () => selectTransaction(tx);
+                        
+                        let statusColor = "text-rose-400";
+                        let statusText = "Thất bại";
+                        if (tx.status === 'success') {
+                            statusColor = "text-emerald-400";
+                            statusText = "Thành công";
+                        } else if (tx.status === 'partial') {
+                            statusColor = "text-yellow-400";
+                            statusText = "Một phần";
+                        }
+                        
+                        // Summarized details for list item
+                        const plateInfo = tx.detections.find(d => d.class_name === 'plate')?.ocr_text || '-';
+                        const codeInfo = tx.detections.find(d => d.class_name === 'container_code')?.ocr_text || '-';
+                        const isoInfo = tx.detections.find(d => d.class_name === 'iso_type')?.ocr_text || '-';
+                        
+                        tr.innerHTML = `
+                            <td class="py-2.5 px-4 text-center">
+                                <div class="w-10 h-7 rounded overflow-hidden border border-gray-800 mx-auto bg-gray-950">
+                                    <img src="${tx.entry_image_url}" class="w-full h-full object-cover">
+                                </div>
+                            </td>
+                            <td class="py-2.5 px-4 font-mono font-bold text-gray-400">${tx.id}</td>
+                            <td class="py-2.5 px-4 text-gray-500">${tx.timestamp}</td>
+                            <td class="py-2.5 px-4 font-bold font-mono tracking-wider text-orange-400/90">${plateInfo}</td>
+                            <td class="py-2.5 px-4 font-bold font-mono tracking-wider text-amber-500/90">${codeInfo}</td>
+                            <td class="py-2.5 px-4 font-semibold font-mono text-gray-400">${isoInfo}</td>
+                            <td class="py-2.5 px-4 text-center font-bold ${statusColor}">${statusText}</td>
+                        `;
+                        
+                        // Prepend row to table body (newest at top)
+                        resultsTableBody.insertBefore(tr, resultsTableBody.firstChild);
+                    }
+                    
+                    // Auto-select the newest transaction on first load OR when a new one arrives (only if no transaction is selected yet)
+                    if (addedNew && (firstLoad || selectedTxId === null)) {
+                        selectTransaction(results[0]);
+                    }
+                } else {
+                    noResults.classList.remove('hidden');
+                }
+            } catch (err) {
+                console.error("Error fetching results:", err);
+            }
+        }
+
+        // Show Details inside the Pinned Panel on Right side
+        function selectTransaction(tx) {
+            // Remove previous active classes
+            if (selectedTxId) {
+                const oldRow = document.getElementById(`tx-row-${selectedTxId}`);
+                if (oldRow) oldRow.classList.remove('tx-row-active');
+            }
+            
+            selectedTxId = tx.id;
+            
+            // Mark new row as active
+            const newRow = document.getElementById(`tx-row-${tx.id}`);
+            if (newRow) newRow.classList.add('tx-row-active');
+            
+            // Switch tabs to "Chi Tiết Lượt Xe" so they see it immediately
+            switchTab('detail');
+            
+            // Hide empty state and show content
+            selectedEmptyState.classList.add('hidden');
+            selectedContent.classList.remove('hidden');
+            
+            // Set header parameters
+            detailTxId.innerText = `LƯỢT XE: ${tx.id}`;
+            detailTimestamp.innerText = tx.timestamp;
+            detailEntryImg.src = tx.entry_image_url;
+            btnZoomEntry.onclick = () => window.open(tx.entry_image_url);
+            
+            // Populate detections comparison list
+            detailDetectionsList.innerHTML = '';
+            
+            tx.detections.forEach(det => {
+                const row = document.createElement('div');
+                row.className = "bg-gray-900/50 border border-gray-800/80 rounded-xl p-3 flex flex-col space-y-2";
+                
+                const badgeColor = det.is_valid ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400";
+                
+                row.innerHTML = `
+                    <div class="flex items-center justify-between border-b border-gray-800/80 pb-1.5">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">${det.display_name}</span>
+                        <span class="px-2 py-0.5 rounded text-[9px] font-bold ${badgeColor}">
+                            ${det.is_valid ? 'Hợp lệ' : (det.validation_message || 'Sai định dạng')}
+                        </span>
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <!-- Left: YOLO Crop -->
+                        <div class="flex items-center space-x-2 shrink-0">
+                            <div class="w-14 h-7 bg-black rounded overflow-hidden border border-gray-800 flex items-center justify-center shrink-0">
+                                ${det.crop_image_url ? 
+                                    `<img src="${det.crop_image_url}" alt="Crop" class="w-full h-full object-contain cursor-pointer" onclick="window.open('${det.crop_image_url}')">` : 
+                                    `<span class="text-[9px] text-gray-600">N/A</span>`
+                                }
+                            </div>
+                            <span class="text-[9px] text-gray-500 font-semibold">${(det.yolo_confidence * 100).toFixed(0)}%</span>
+                        </div>
+                        
+                        <!-- Arrow indicator -->
+                        <svg class="w-4 h-4 text-gray-700 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                        
+                        <!-- Right: OCR result -->
+                        <div class="text-right">
+                            <div class="text-xs font-bold font-mono text-white tracking-wider">${det.ocr_text}</div>
+                            <div class="text-[9px] text-gray-500">Conf: ${(det.ocr_confidence * 100).toFixed(0)}%</div>
+                        </div>
+                    </div>
+                `;
+                detailDetectionsList.appendChild(row);
+            });
+        }
+    </script>
+</body>
+</html>

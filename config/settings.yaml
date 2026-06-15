@@ -1,0 +1,112 @@
+pipeline:
+  confidence_threshold: 0.4
+  target_classes:
+    - "plate"
+    - "container_code"
+    - "iso_type"
+  
+detector:
+  model_path: "models/best.pt"
+  device: "cuda:0"
+  imgsz: 640
+  conf: 0.3
+  iou: 0.45
+
+transformation:
+  padding_px: 2
+
+recognizer:
+  engine: "paddleocr"  # Options: "mock", "paddleocr", "onnx"
+  paddleocr:
+    lang: "en"
+    use_gpu: true
+    det: true  # Chạy cả detection và recognition trong PaddleOCR để crop chữ khít hơn
+    rec: true
+    cls: false
+  onnx:
+    model_path: "models/ocr_rec.onnx"
+    char_dict_path: "models/ocr_keys.txt"
+
+quality_gate:
+  enabled: true
+  blur_threshold: 50.0
+  min_brightness: 40
+  max_brightness: 235
+  min_resolution: [416, 416]
+
+# ===== CỔNG XÁC THỰC TRƯỚC OCR =====
+pre_ocr_gate:
+  enabled: true
+  # Giới hạn tỷ lệ khung hình [min, max]
+  aspect_ratio:
+    plate: [0.5, 5.0]
+    container_code: [2.0, 15.0]
+    iso_type: [0.5, 4.0]
+  # Kích thước tối thiểu [width, height] (px)
+  min_crop_size:
+    plate: [20, 10]
+    container_code: [30, 8]
+    iso_type: [10, 8]
+  # Ngưỡng chất lượng
+  crop_blur_threshold: 15.0
+  crop_min_contrast: 10.0
+
+#  TIỀN XỬ LÝ ẢNH TRƯỚC OCR
+preprocessing:
+  enabled: true
+  # CLAHE - Cân bằng tương phản cục bộ
+  clahe:
+    enabled: true
+    clip_limit: 2.0
+    tile_grid_size: [8, 8]
+  # Khử nhiễu
+  denoise:
+    enabled: true
+    method: "bilateral"
+    d: 5
+    sigma_color: 75
+    sigma_space: 75
+  # Phóng to ảnh nhỏ
+  upscale:
+    enabled: true
+    target_height: 64
+    max_scale: 4.0
+  # Nhị phân hóa thích ứng
+  binarize:
+    enabled: false 
+    block_size: 11
+    constant: 2
+  # Ghi đè cấu hình theo lớp đối tượng
+  class_overrides:
+    plate:
+      clahe:
+        clip_limit: 3.0
+      upscale:
+        target_height: 96
+      denoise:
+        enabled: false
+    container_code:
+      upscale:
+        target_height: 48
+    iso_type:
+      upscale:
+        target_height: 48
+
+aggregation:
+  enabled: true
+  voting_strategy: "majority"
+  min_frames: 7
+  time_window_seconds: 5.0
+
+class_correction:
+  enabled: true
+  aspect_ratio:
+    iso_to_container_threshold: 4.0     
+    container_to_iso_min: 1.0            
+    container_to_iso_max: 2.8             
+
+# ===== REGION OF INTEREST (ROI) =====
+roi:
+  enabled: false                          # Bật/tắt lọc theo vùng ROI
+  crop_roi: true                          # Nếu true, crop bounding box ROI và chạy YOLO trên crop (thay đổi tỉ lệ đối tượng)
+  config_file: "config/roi_config.json"   # File lưu trữ tọa độ polygon ROI
