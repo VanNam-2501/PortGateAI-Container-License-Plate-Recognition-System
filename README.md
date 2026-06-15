@@ -5,7 +5,7 @@ Hệ thống nhận diện biển số xe (ALPR) và mã container tự động 
 ## 🎥 Video Demo
 
 <p align="center">
-  <video src="demo.mp4" width="100%" height="auto" controls loop autoplay muted></video>
+  <img src="demo.gif" width="100%" height="auto" />
 </p>
 
 ---

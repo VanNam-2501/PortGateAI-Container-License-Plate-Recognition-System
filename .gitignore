@@ -173,7 +173,6 @@ dmypy.json
 visualized_*.jpeg
 visualized_*.png
 *.mp4
-!demo.mp4
 *.avi
 *.mkv
 
